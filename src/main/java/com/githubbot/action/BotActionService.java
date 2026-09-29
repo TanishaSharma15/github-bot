@@ -74,6 +74,11 @@ public class BotActionService {
 			planPullRequest(delivery, pullRequest);
 			return;
 		}
+		PushMatch push = PushMatch.from(delivery);
+		if (push != null) {
+			planPush(delivery);
+			return;
+		}
 		delivery.setStatus("skipped");
 	}
 
@@ -111,6 +116,15 @@ public class BotActionService {
 		delivery.setStatus("queued");
 	}
 
+	private void planPush(WebhookDelivery delivery) {
+		if (!settingsFor(delivery).slackEnabled()) {
+			delivery.setStatus("skipped");
+			return;
+		}
+		createAction(delivery, "slack");
+		delivery.setStatus("queued");
+	}
+
 	@Transactional
 	public void run(long actionId) {
 		BotAction action = actions.findById(actionId).orElse(null);
@@ -137,8 +151,9 @@ public class BotActionService {
 		WebhookDelivery delivery = action.getDelivery();
 		IssueMatch issue = IssueMatch.opened(delivery);
 		PullRequestMatch pullRequest = PullRequestMatch.opened(delivery);
-		if (issue == null && pullRequest == null) {
-			throw new IllegalStateException("This delivery is not an opened issue or pull request.");
+		PushMatch push = PushMatch.from(delivery);
+		if (issue == null && pullRequest == null && push == null) {
+			throw new IllegalStateException("This delivery is not an opened issue, pull request, or push.");
 		}
 		RuleSettings rule = settingsFor(delivery);
 		TrackedRepository repository = delivery.getRepository();
@@ -155,12 +170,21 @@ public class BotActionService {
 			return;
 		}
 		if ("slack".equals(action.getActionType())) {
-			String text = issue != null
-					? issue.slackText(repository.getOwner(), repository.getName(), rule.label(), savedSummary(delivery))
-					: pullRequest.slackText(repository.getOwner(), repository.getName(),
-							pullRequest.matches(rule.keyword()) ? rule.label() : null, savedSummary(delivery));
+			String text = slackText(repository, issue, pullRequest, push, rule, delivery);
 			slack.post(cipher.decrypt(repository.getSlackWebhookUrl()), text);
 		}
+	}
+
+	private String slackText(TrackedRepository repository, IssueMatch issue, PullRequestMatch pullRequest, PushMatch push,
+			RuleSettings rule, WebhookDelivery delivery) {
+		if (push != null) {
+			return push.slackText(repository.getOwner(), repository.getName());
+		}
+		if (issue != null) {
+			return issue.slackText(repository.getOwner(), repository.getName(), rule.label(), savedSummary(delivery));
+		}
+		return pullRequest.slackText(repository.getOwner(), repository.getName(),
+				pullRequest.matches(rule.keyword()) ? rule.label() : null, savedSummary(delivery));
 	}
 
 	private String savedSummary(WebhookDelivery delivery) {

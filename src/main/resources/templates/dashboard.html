@@ -10,7 +10,7 @@
 	<main class="panel wide">
 		<p class="eyebrow">Dashboard</p>
 		<h1 th:text="'Signed in as ' + ${login}">Signed in as octocat</h1>
-		<p class="lede">Opened issues and pull requests that contain the keyword get the label. Every opened pull request is posted to Slack when Slack is turned on.</p>
+		<p class="lede">Opened issues and pull requests that contain the keyword get the label. Every opened pull request and every push is posted to Slack when Slack is turned on.</p>
 		<p class="notice" th:if="${notice}" th:text="${notice}">Saved the rule.</p>
 		<p class="error" th:if="${error}" th:text="${error}">Enter a keyword and a label.</p>
 		<form class="stack" th:action="@{/dashboard}" method="post">

@@ -305,6 +305,65 @@ class BotActionWorkerTest {
 	}
 
 	@Test
+	void pushNotifiesSlackOnceAndDoesNotLabel() {
+		saveDelivery("push", "delivery-push", push("refs/heads/main", "octocat", 2, "Fix login",
+				"https://github.com/octocat/github-bot-demo/compare/abc...def"));
+
+		worker.process();
+		worker.process();
+
+		verify(github, never()).addIssueLabel(anyString(), anyString(), anyString(), anyInt(), anyString());
+		verify(summaries, never()).summarize(anyString(), anyString());
+		verify(slack, times(1)).post(eq(SLACK_URL), contains("main"));
+		verify(slack).post(eq(SLACK_URL), contains("octocat"));
+		verify(slack).post(eq(SLACK_URL), contains("2 commits"));
+		verify(slack).post(eq(SLACK_URL), contains("Fix login"));
+		verify(slack).post(eq(SLACK_URL), contains("https://github.com/octocat/github-bot-demo/compare/abc...def"));
+		assertEquals(1, actions.count());
+		assertEquals("succeeded", actionStatus("slack"));
+	}
+
+	@Test
+	void oneCommitPushUsesTheSingularCommitCount() {
+		saveDelivery("push", "delivery-push-one", push("refs/heads/feature/login", "hubot", 1, "Add login",
+				"https://github.com/octocat/github-bot-demo/commit/abc"));
+
+		worker.process();
+
+		verify(slack).post(eq(SLACK_URL), contains("1 commit"));
+		verify(slack).post(eq(SLACK_URL), contains("feature/login"));
+		verify(slack).post(eq(SLACK_URL), contains("hubot"));
+	}
+
+	@Test
+	void pushWithSlackOffIsSkipped() {
+		saveRule("bug", "bug", false);
+		saveDelivery("push", "delivery-push-quiet", push("refs/heads/main", "octocat", 1, "Fix login",
+				"https://github.com/octocat/github-bot-demo/commit/abc"));
+
+		worker.process();
+
+		verify(slack, never()).post(anyString(), anyString());
+		verify(github, never()).addIssueLabel(anyString(), anyString(), anyString(), anyInt(), anyString());
+		assertEquals(0, actions.count());
+		assertEquals("skipped", deliveries.findByDeliveryId("delivery-push-quiet").orElseThrow().getStatus());
+	}
+
+	@Test
+	void slackFailureOnPushRetriesWithoutASecondMessageAfterSuccess() {
+		saveDelivery("push", "delivery-push-retry", push("refs/heads/main", "octocat", 1, "Fix login",
+				"https://github.com/octocat/github-bot-demo/commit/abc"));
+		doThrow(new SlackRequestException("Slack returned 500.")).doNothing().when(slack).post(anyString(), anyString());
+
+		worker.process();
+		worker.process();
+
+		verify(slack, times(2)).post(eq(SLACK_URL), contains("Fix login"));
+		assertEquals(1, actions.count());
+		assertEquals("succeeded", actionStatus("slack"));
+	}
+
+	@Test
 	void pingCreatesNoActions() {
 		saveDelivery("ping", "delivery-ping", "{\"zen\":\"keep it logically awesome\"}");
 
@@ -348,6 +407,14 @@ class BotActionWorkerTest {
 		return """
 				{"action":"%s","issue":{"number":%d,"title":"%s","body":"%s"}}
 				""".formatted(action, number, title, body);
+	}
+
+	private static String push(String ref, String author, int commitCount, String message, String compareUrl) {
+		String commits = commitCount == 0 ? "" : "{\"message\":\"" + message + "\"}"
+				+ ",{\"message\":\"earlier\"}".repeat(Math.max(0, commitCount - 1));
+		return """
+				{"ref":"%s","compare":"%s","pusher":{"name":"%s"},"commits":[%s],"head_commit":{"message":"%s"}}
+				""".formatted(ref, compareUrl, author, commits, message);
 	}
 
 	private static String pullRequest(String action, int number, String title, String body, String author) {
