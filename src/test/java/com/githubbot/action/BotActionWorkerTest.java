@@ -10,6 +10,8 @@ import com.githubbot.repo.TrackedRepository;
 import com.githubbot.repo.TrackedRepositoryRepository;
 import com.githubbot.slack.SlackClient;
 import com.githubbot.slack.SlackRequestException;
+import com.githubbot.summary.SummaryClient;
+import com.githubbot.summary.SummaryRequestException;
 import com.githubbot.webhook.WebhookDelivery;
 import com.githubbot.webhook.WebhookDeliveryRepository;
 
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 class BotActionWorkerTest {
@@ -60,6 +63,9 @@ class BotActionWorkerTest {
 
 	@MockitoBean
 	private SlackClient slack;
+
+	@MockitoBean
+	private SummaryClient summaries;
 
 	@BeforeEach
 	void connectedRepository() {
@@ -140,6 +146,7 @@ class BotActionWorkerTest {
 
 	@Test
 	void slackOffStillLabelsAndDoesNotNotify() {
+		when(summaries.isConfigured()).thenReturn(true);
 		saveRule("bug", "bug", false);
 		saveDelivery("issues", "delivery-bug", issue("opened", 7, "Test bug webhook", ""));
 
@@ -147,8 +154,56 @@ class BotActionWorkerTest {
 
 		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 7, "bug");
 		verify(slack, never()).post(anyString(), anyString());
+		verify(summaries, never()).summarize(anyString(), anyString());
 		assertEquals(1, actions.count());
 		assertEquals("succeeded", actionStatus("label"));
+	}
+
+	@Test
+	void summaryIsIncludedInTheSlackMessage() {
+		when(summaries.isConfigured()).thenReturn(true);
+		when(summaries.summarize(eq("Login bug on the homepage"), anyString()))
+				.thenReturn("The homepage login fails.");
+		saveDelivery("issues", "delivery-summary",
+				issue("opened", 7, "Login bug on the homepage", "The form rejects the password."));
+
+		worker.process();
+
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 7, "bug");
+		verify(summaries).summarize(eq("Login bug on the homepage"), contains("password"));
+		verify(slack).post(eq(SLACK_URL), contains("The homepage login fails."));
+		assertEquals("succeeded", actionStatus("summary"));
+		assertEquals("succeeded", actionStatus("label"));
+		assertEquals("succeeded", actionStatus("slack"));
+	}
+
+	@Test
+	void summaryFailureStillLabelsAndNotifies() {
+		when(summaries.isConfigured()).thenReturn(true);
+		when(summaries.summarize(anyString(), anyString()))
+				.thenThrow(new SummaryRequestException("Groq returned 500."));
+		saveDelivery("issues", "delivery-summary-fail", issue("opened", 7, "Test bug webhook", ""));
+
+		worker.process();
+
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 7, "bug");
+		verify(slack).post(eq(SLACK_URL), contains("Test bug webhook"));
+		assertEquals("failed", actionStatus("summary"));
+		assertEquals("succeeded", actionStatus("label"));
+		assertEquals("succeeded", actionStatus("slack"));
+	}
+
+	@Test
+	void missingGroqKeySkipsTheSummary() {
+		when(summaries.isConfigured()).thenReturn(false);
+		saveDelivery("issues", "delivery-no-key", issue("opened", 7, "Test bug webhook", ""));
+
+		worker.process();
+
+		verify(summaries, never()).summarize(anyString(), anyString());
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 7, "bug");
+		verify(slack, times(1)).post(eq(SLACK_URL), contains("Test bug webhook"));
+		assertEquals(2, actions.count());
 	}
 
 	@Test

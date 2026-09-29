@@ -8,6 +8,7 @@ import com.githubbot.auth.TokenCipher;
 import com.githubbot.github.GitHubClient;
 import com.githubbot.repo.TrackedRepository;
 import com.githubbot.slack.SlackClient;
+import com.githubbot.summary.SummaryClient;
 import com.githubbot.webhook.WebhookDelivery;
 import com.githubbot.webhook.WebhookDeliveryRepository;
 
@@ -30,18 +31,21 @@ public class BotActionService {
 
 	private final SlackClient slack;
 
+	private final SummaryClient summaries;
+
 	private final TokenCipher cipher;
 
 	private final Duration retryDelay;
 
 	public BotActionService(WebhookDeliveryRepository deliveries, BotActionRepository actions, BotRuleRepository rules,
-			GitHubClient github, SlackClient slack, TokenCipher cipher,
+			GitHubClient github, SlackClient slack, SummaryClient summaries, TokenCipher cipher,
 			@Value("${app.action-retry-delay:30s}") Duration retryDelay) {
 		this.deliveries = deliveries;
 		this.actions = actions;
 		this.rules = rules;
 		this.github = github;
 		this.slack = slack;
+		this.summaries = summaries;
 		this.cipher = cipher;
 		this.retryDelay = retryDelay;
 	}
@@ -68,6 +72,9 @@ public class BotActionService {
 		}
 		createAction(delivery, "label");
 		if (rule.slackEnabled()) {
+			if (summaries.isConfigured()) {
+				createAction(delivery, "summary");
+			}
 			createAction(delivery, "slack");
 		}
 		delivery.setStatus("queued");
@@ -108,10 +115,21 @@ public class BotActionService {
 					repository.getName(), issue.number(), rule.label());
 			return;
 		}
+		if ("summary".equals(action.getActionType())) {
+			action.setDetail(summaries.summarize(issue.title(), issue.body()));
+			return;
+		}
 		if ("slack".equals(action.getActionType())) {
 			slack.post(cipher.decrypt(repository.getSlackWebhookUrl()),
-					issue.slackText(repository.getOwner(), repository.getName(), rule.label()));
+					issue.slackText(repository.getOwner(), repository.getName(), rule.label(), savedSummary(delivery)));
 		}
+	}
+
+	private String savedSummary(WebhookDelivery delivery) {
+		return actions.findByDeliveryAndActionType(delivery, "summary")
+				.filter(action -> "succeeded".equals(action.getStatus()))
+				.map(BotAction::getDetail)
+				.orElse(null);
 	}
 
 	private RuleSettings settingsFor(WebhookDelivery delivery) {

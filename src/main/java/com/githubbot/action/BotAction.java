@@ -41,6 +41,9 @@ public class BotAction {
 	@Column(length = 500)
 	private String lastError;
 
+	@Column(length = 1000)
+	private String detail;
+
 	public Long getId() {
 		return id;
 	}
@@ -91,6 +94,14 @@ public class BotAction {
 
 	public void setLastError(String lastError) {
 		this.lastError = lastError;
+	}
+
+	public String getDetail() {
+		return detail;
+	}
+
+	public void setDetail(String detail) {
+		this.detail = detail;
 	}
 
 }

@@ -56,9 +56,21 @@ final class IssueMatch {
 		return number;
 	}
 
-	String slackText(String owner, String name, String label) {
-		return "Labeled " + owner + "/" + name + "#" + number + " as " + label + ": " + title + "\nhttps://github.com/"
-				+ owner + "/" + name + "/issues/" + number;
+	String title() {
+		return title;
+	}
+
+	String body() {
+		return body;
+	}
+
+	String slackText(String owner, String name, String label, String summary) {
+		String text = "Labeled " + owner + "/" + name + "#" + number + " as " + label + ": " + title
+				+ "\nhttps://github.com/" + owner + "/" + name + "/issues/" + number;
+		if (summary != null && !summary.isBlank()) {
+			text = text + "\n" + summary.trim();
+		}
+		return text;
 	}
 
 	private static boolean contains(String value, String keyword) {

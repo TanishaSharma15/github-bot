@@ -6,6 +6,8 @@ app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
   worker-delay-ms: ${APP_WORKER_DELAY_MS:15000}
   action-retry-delay: ${APP_ACTION_RETRY_DELAY:30s}
+  groq-api-key: ${GROQ_API_KEY:}
+  groq-model: ${GROQ_MODEL:llama-3.1-8b-instant}
 
 spring:
   application:
