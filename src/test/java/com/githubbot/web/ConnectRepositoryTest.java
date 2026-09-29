@@ -9,6 +9,7 @@ import com.githubbot.auth.UserRepository;
 import com.githubbot.github.GitHubClient;
 import com.githubbot.github.GitHubRepo;
 import com.githubbot.repo.TrackedRepositoryRepository;
+import com.githubbot.webhook.WebhookDeliveryRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class ConnectRepositoryTest {
 	private TrackedRepositoryRepository repositories;
 
 	@Autowired
+	private WebhookDeliveryRepository deliveries;
+
+	@Autowired
 	private TokenCipher cipher;
 
 	@MockitoBean
@@ -49,6 +53,7 @@ class ConnectRepositoryTest {
 
 	@BeforeEach
 	void signedInUser() {
+		deliveries.deleteAll();
 		repositories.deleteAll();
 		users.deleteAll();
 		User user = new User();

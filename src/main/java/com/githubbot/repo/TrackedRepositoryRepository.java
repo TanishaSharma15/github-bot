@@ -11,6 +11,8 @@ public interface TrackedRepositoryRepository extends JpaRepository<TrackedReposi
 
 	Optional<TrackedRepository> findByUserAndGithubRepoId(User user, Long githubRepoId);
 
+	Optional<TrackedRepository> findFirstByWebhookId(Long webhookId);
+
 	List<TrackedRepository> findByUserOrderByNameAsc(User user);
 
 }
