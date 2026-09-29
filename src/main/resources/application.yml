@@ -1,0 +1,28 @@
+server:
+  port: ${PORT:8080}
+
+app:
+  encryption-key: ${APP_ENCRYPTION_KEY:}
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+
+spring:
+  application:
+    name: github-bot
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:}
+            client-secret: ${GITHUB_CLIENT_SECRET:}
+            scope:
+              - read:user
+              - repo
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/githubbot}
+    username: ${SPRING_DATASOURCE_USERNAME:githubbot}
+    password: ${SPRING_DATASOURCE_PASSWORD:githubbot}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false

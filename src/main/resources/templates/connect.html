@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Connect repository — GitHub Bot</title>
+	<link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+	<main class="panel">
+		<p class="eyebrow">Connect repository</p>
+		<h1>Choose a repository to watch.</h1>
+		<p class="lede">Signed in as <strong th:text="${login}">octocat</strong>. GitHub will send issues, pull requests, and pushes to this app. The first ping fails while the app is on your computer, and the webhook is still registered.</p>
+		<p class="notice" th:if="${notice}" th:text="${notice}">Connected octocat/github-bot-demo</p>
+		<p class="error" th:if="${error}" th:text="${error}">GitHub returned an error.</p>
+		<ul th:if="${!connected.isEmpty()}">
+			<li th:each="repo : ${connected}" th:text="'Connected ' + ${repo.owner} + '/' + ${repo.name}">Connected octocat/github-bot-demo</li>
+		</ul>
+		<form class="stack" th:action="@{/repositories}" method="post" th:if="${!repos.isEmpty()}">
+			<label>
+				Repository
+				<select name="githubRepoId" required>
+					<option th:each="repo : ${repos}" th:value="${repo.id()}" th:text="${repo.owner() + '/' + repo.name()}">octocat/github-bot-demo</option>
+				</select>
+			</label>
+			<label>
+				Slack incoming webhook URL
+				<input type="url" name="slackWebhookUrl" required placeholder="https://hooks.slack.com/services/...">
+			</label>
+			<button class="button" type="submit">Connect</button>
+		</form>
+		<p th:if="${repos.isEmpty() && error == null}">No repositories were returned for this account.</p>
+		<div class="actions">
+			<a class="button secondary" th:href="@{/}">Home</a>
+		</div>
+	</main>
+</body>
+</html>

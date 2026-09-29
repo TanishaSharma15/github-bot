@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>GitHub Bot</title>
+	<link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+	<main class="panel">
+		<p class="eyebrow">GitHub Bot</p>
+		<h1>Watch a repository and let the bot respond.</h1>
+		<p class="lede">Sign in with GitHub to connect a repository you own. The bot will record issues and pull requests, write back to GitHub, and notify Slack.</p>
+		<div th:if="${login == null}">
+			<a class="button" href="/oauth2/authorization/github">Sign in with GitHub</a>
+		</div>
+		<div th:if="${login != null}" class="signed-in">
+			<p>Signed in as <strong th:text="${login}">octocat</strong></p>
+			<div class="actions">
+				<a class="button" th:href="@{/repositories}">Connect repository</a>
+				<a class="button secondary" th:href="@{/dashboard}">Dashboard</a>
+				<form th:action="@{/logout}" method="post">
+					<button type="submit">Log out</button>
+				</form>
+			</div>
+		</div>
+	</main>
+</body>
+</html>

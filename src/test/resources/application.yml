@@ -1,0 +1,23 @@
+app:
+  encryption-key: test-encryption-key
+  base-url: http://localhost:8080
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:githubbot;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: test-client-id
+            client-secret: test-client-secret
+            scope:
+              - read:user
+              - repo

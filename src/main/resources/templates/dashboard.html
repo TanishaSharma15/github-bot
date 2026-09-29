@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Dashboard — GitHub Bot</title>
+	<link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+	<main class="panel">
+		<p class="eyebrow">Dashboard</p>
+		<h1 th:text="'Signed in as ' + ${login}">Signed in as octocat</h1>
+		<p class="lede">The event log arrives in a later step. This page is only available after you sign in with GitHub.</p>
+		<div class="actions">
+			<a class="button secondary" th:href="@{/}">Home</a>
+			<form th:action="@{/logout}" method="post">
+				<button type="submit">Log out</button>
+			</form>
+		</div>
+	</main>
+</body>
+</html>

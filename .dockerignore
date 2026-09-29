@@ -1,0 +1,7 @@
+.git
+.env
+target
+.idea
+.vscode
+*.md
+agent-transcripts
