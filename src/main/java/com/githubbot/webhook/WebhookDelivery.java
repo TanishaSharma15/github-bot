@@ -33,7 +33,7 @@ public class WebhookDelivery {
 	private TrackedRepository repository;
 
 	@Lob
-	@Column(nullable = false)
+	@Column(nullable = false, columnDefinition = "LONGTEXT")
 	private String payload;
 
 	@Column(nullable = false)

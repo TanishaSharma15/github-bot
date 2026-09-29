@@ -14,23 +14,29 @@ public class WebhookController {
 
 	private final WebhookReceiver receiver;
 
-	public WebhookController(WebhookReceiver receiver) {
+	private final WebhookDeliveryRepository deliveries;
+
+	public WebhookController(WebhookReceiver receiver, WebhookDeliveryRepository deliveries) {
 		this.receiver = receiver;
+		this.deliveries = deliveries;
 	}
 
 	@PostMapping("/webhooks/github")
 	public ResponseEntity<Void> receive(HttpServletRequest request) throws IOException {
+		String deliveryId = request.getHeader("X-GitHub-Delivery");
 		try {
-			receiver.accept(request.getHeader("X-GitHub-Event"), request.getHeader("X-GitHub-Delivery"),
-					request.getHeader("X-GitHub-Hook-ID"), request.getHeader("X-Hub-Signature-256"),
-					request.getInputStream().readAllBytes());
+			receiver.accept(request.getHeader("X-GitHub-Event"), deliveryId, request.getHeader("X-GitHub-Hook-ID"),
+					request.getHeader("X-Hub-Signature-256"), request.getInputStream().readAllBytes());
 			return ResponseEntity.ok().build();
 		}
 		catch (WebhookRejectedException ex) {
 			return ResponseEntity.status(401).build();
 		}
 		catch (DataIntegrityViolationException ex) {
-			return ResponseEntity.ok().build();
+			if (deliveries.findByDeliveryId(deliveryId).isPresent()) {
+				return ResponseEntity.ok().build();
+			}
+			return ResponseEntity.internalServerError().build();
 		}
 	}
 

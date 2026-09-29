@@ -89,6 +89,16 @@ class WebhookControllerTest {
 	}
 
 	@Test
+	void fullSizeIssuePayloadIsStored() throws Exception {
+		String payload = "{\"action\":\"opened\",\"padding\":\"" + "x".repeat(20_000) + "\"}";
+		byte[] body = payload.getBytes(StandardCharsets.UTF_8);
+
+		mockMvc.perform(delivery("issues", "delivery-large", body)).andExpect(status().isOk());
+
+		assertEquals(payload, deliveries.findByDeliveryId("delivery-large").orElseThrow().getPayload());
+	}
+
+	@Test
 	void pingIsStored() throws Exception {
 		byte[] body = "{\"zen\":\"keep it logically awesome\"}".getBytes(StandardCharsets.UTF_8);
 
