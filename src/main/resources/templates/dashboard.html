@@ -7,10 +7,51 @@
 	<link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
-	<main class="panel">
+	<main class="panel wide">
 		<p class="eyebrow">Dashboard</p>
 		<h1 th:text="'Signed in as ' + ${login}">Signed in as octocat</h1>
-		<p class="lede">The event log arrives in a later step. This page is only available after you sign in with GitHub.</p>
+		<p class="lede">Opened issues that contain the keyword get the label. Slack is posted only when it is turned on.</p>
+		<p class="notice" th:if="${notice}" th:text="${notice}">Saved the rule.</p>
+		<p class="error" th:if="${error}" th:text="${error}">Enter a keyword and a label.</p>
+		<form class="stack" th:action="@{/dashboard}" method="post">
+			<label>
+				Keyword
+				<input type="text" name="keyword" required maxlength="50" th:value="${rule.keyword}">
+			</label>
+			<label>
+				Label
+				<input type="text" name="label" required maxlength="50" th:value="${rule.label}">
+			</label>
+			<label class="check">
+				<input type="checkbox" name="slackEnabled" value="true" th:checked="${rule.slackEnabled}">
+				Post to Slack
+			</label>
+			<button class="button" type="submit">Save rule</button>
+		</form>
+		<h2>Events</h2>
+		<p th:if="${events.isEmpty()}">No events yet.</p>
+		<table class="log" th:if="${!events.isEmpty()}">
+			<thead>
+				<tr>
+					<th>When</th>
+					<th>Repository</th>
+					<th>Event</th>
+					<th>Status</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="event : ${events}">
+					<td th:text="${event.when}">2026-09-29 14:30</td>
+					<td th:text="${event.repository}">octocat/github-bot-demo</td>
+					<td th:text="${event.event}">issues</td>
+					<td th:text="${event.status}">queued</td>
+					<td>
+						<span th:each="action : ${event.actions}" th:text="${action}">label succeeded</span>
+					</td>
+				</tr>
+			</tbody>
+		</table>
 		<div class="actions">
 			<a class="button secondary" th:href="@{/}">Home</a>
 			<form th:action="@{/logout}" method="post">

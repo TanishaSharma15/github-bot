@@ -24,6 +24,8 @@ public class BotActionService {
 
 	private final BotActionRepository actions;
 
+	private final BotRuleRepository rules;
+
 	private final GitHubClient github;
 
 	private final SlackClient slack;
@@ -32,10 +34,12 @@ public class BotActionService {
 
 	private final Duration retryDelay;
 
-	public BotActionService(WebhookDeliveryRepository deliveries, BotActionRepository actions, GitHubClient github,
-			SlackClient slack, TokenCipher cipher, @Value("${app.action-retry-delay:30s}") Duration retryDelay) {
+	public BotActionService(WebhookDeliveryRepository deliveries, BotActionRepository actions, BotRuleRepository rules,
+			GitHubClient github, SlackClient slack, TokenCipher cipher,
+			@Value("${app.action-retry-delay:30s}") Duration retryDelay) {
 		this.deliveries = deliveries;
 		this.actions = actions;
+		this.rules = rules;
 		this.github = github;
 		this.slack = slack;
 		this.cipher = cipher;
@@ -56,13 +60,16 @@ public class BotActionService {
 		if (delivery == null || !"received".equals(delivery.getStatus())) {
 			return;
 		}
-		IssueMatch match = IssueMatch.from(delivery);
-		if (match == null) {
+		IssueMatch issue = IssueMatch.opened(delivery);
+		RuleSettings rule = settingsFor(delivery);
+		if (issue == null || !issue.matches(rule.keyword())) {
 			delivery.setStatus("skipped");
 			return;
 		}
 		createAction(delivery, "label");
-		createAction(delivery, "slack");
+		if (rule.slackEnabled()) {
+			createAction(delivery, "slack");
+		}
 		delivery.setStatus("queued");
 	}
 
@@ -90,20 +97,25 @@ public class BotActionService {
 
 	private void perform(BotAction action) {
 		WebhookDelivery delivery = action.getDelivery();
-		IssueMatch match = IssueMatch.from(delivery);
-		if (match == null) {
-			throw new IllegalStateException("This delivery is not an opened bug issue.");
+		IssueMatch issue = IssueMatch.opened(delivery);
+		if (issue == null) {
+			throw new IllegalStateException("This delivery is not an opened issue.");
 		}
+		RuleSettings rule = settingsFor(delivery);
 		TrackedRepository repository = delivery.getRepository();
 		if ("label".equals(action.getActionType())) {
 			github.addIssueLabel(cipher.decrypt(repository.getUser().getAccessToken()), repository.getOwner(),
-					repository.getName(), match.number(), "bug");
+					repository.getName(), issue.number(), rule.label());
 			return;
 		}
 		if ("slack".equals(action.getActionType())) {
 			slack.post(cipher.decrypt(repository.getSlackWebhookUrl()),
-					match.slackText(repository.getOwner(), repository.getName()));
+					issue.slackText(repository.getOwner(), repository.getName(), rule.label()));
 		}
+	}
+
+	private RuleSettings settingsFor(WebhookDelivery delivery) {
+		return rules.findByUser(delivery.getRepository().getUser()).map(RuleSettings::from).orElseGet(RuleSettings::defaults);
 	}
 
 	private void createAction(WebhookDelivery delivery, String type) {

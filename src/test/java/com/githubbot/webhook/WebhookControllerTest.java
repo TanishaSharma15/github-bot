@@ -7,6 +7,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.githubbot.action.BotActionRepository;
+import com.githubbot.action.BotRuleRepository;
 import com.githubbot.auth.TokenCipher;
 import com.githubbot.auth.User;
 import com.githubbot.auth.UserRepository;
@@ -49,6 +50,9 @@ class WebhookControllerTest {
 	private BotActionRepository actions;
 
 	@Autowired
+	private BotRuleRepository rules;
+
+	@Autowired
 	private TokenCipher cipher;
 
 	@BeforeEach
@@ -56,6 +60,7 @@ class WebhookControllerTest {
 		actions.deleteAll();
 		deliveries.deleteAll();
 		repositories.deleteAll();
+		rules.deleteAll();
 		users.deleteAll();
 		User user = new User();
 		user.setGithubId(99L);

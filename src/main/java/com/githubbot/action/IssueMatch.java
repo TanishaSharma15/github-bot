@@ -15,12 +15,15 @@ final class IssueMatch {
 
 	private final String title;
 
-	private IssueMatch(int number, String title) {
+	private final String body;
+
+	private IssueMatch(int number, String title, String body) {
 		this.number = number;
 		this.title = title;
+		this.body = body;
 	}
 
-	static IssueMatch from(WebhookDelivery delivery) {
+	static IssueMatch opened(WebhookDelivery delivery) {
 		if (!"issues".equals(delivery.getEvent())) {
 			return null;
 		}
@@ -35,27 +38,31 @@ final class IssueMatch {
 			}
 			String title = issue.path("title").asString("");
 			String body = issue.path("body").isNull() ? "" : issue.path("body").asString("");
-			if (!containsBug(title) && !containsBug(body)) {
-				return null;
-			}
-			return new IssueMatch(issue.path("number").asInt(), title);
+			return new IssueMatch(issue.path("number").asInt(), title, body);
 		}
 		catch (RuntimeException ex) {
 			return null;
 		}
 	}
 
+	boolean matches(String keyword) {
+		if (keyword == null || keyword.isBlank()) {
+			return false;
+		}
+		return contains(title, keyword) || contains(body, keyword);
+	}
+
 	int number() {
 		return number;
 	}
 
-	String slackText(String owner, String name) {
-		return "Labeled " + owner + "/" + name + "#" + number + " as bug: " + title + "\nhttps://github.com/" + owner
-				+ "/" + name + "/issues/" + number;
+	String slackText(String owner, String name, String label) {
+		return "Labeled " + owner + "/" + name + "#" + number + " as " + label + ": " + title + "\nhttps://github.com/"
+				+ owner + "/" + name + "/issues/" + number;
 	}
 
-	private static boolean containsBug(String value) {
-		return value.toLowerCase(Locale.ROOT).contains("bug");
+	private static boolean contains(String value, String keyword) {
+		return value.toLowerCase(Locale.ROOT).contains(keyword.toLowerCase(Locale.ROOT));
 	}
 
 }

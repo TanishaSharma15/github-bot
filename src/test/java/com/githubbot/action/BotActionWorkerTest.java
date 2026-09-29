@@ -50,6 +50,9 @@ class BotActionWorkerTest {
 	private BotActionRepository actions;
 
 	@Autowired
+	private BotRuleRepository rules;
+
+	@Autowired
 	private TokenCipher cipher;
 
 	@MockitoBean
@@ -63,6 +66,7 @@ class BotActionWorkerTest {
 		actions.deleteAll();
 		deliveries.deleteAll();
 		repositories.deleteAll();
+		rules.deleteAll();
 		users.deleteAll();
 		User user = new User();
 		user.setGithubId(99L);
@@ -121,6 +125,33 @@ class BotActionWorkerTest {
 	}
 
 	@Test
+	void savedRuleLabelsOnlyMatchingIssues() {
+		saveRule("note", "question", true);
+		saveDelivery("issues", "delivery-note", issue("opened", 8, "Just a note", ""));
+		saveDelivery("issues", "delivery-bug", issue("opened", 7, "Test bug webhook", ""));
+
+		worker.process();
+
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 8, "question");
+		verify(github, never()).addIssueLabel(anyString(), anyString(), anyString(), eq(7), anyString());
+		verify(slack, times(1)).post(eq(SLACK_URL), contains("as question"));
+		assertEquals("skipped", deliveries.findByDeliveryId("delivery-bug").orElseThrow().getStatus());
+	}
+
+	@Test
+	void slackOffStillLabelsAndDoesNotNotify() {
+		saveRule("bug", "bug", false);
+		saveDelivery("issues", "delivery-bug", issue("opened", 7, "Test bug webhook", ""));
+
+		worker.process();
+
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 7, "bug");
+		verify(slack, never()).post(anyString(), anyString());
+		assertEquals(1, actions.count());
+		assertEquals("succeeded", actionStatus("label"));
+	}
+
+	@Test
 	void pingCreatesNoActions() {
 		saveDelivery("ping", "delivery-ping", "{\"zen\":\"keep it logically awesome\"}");
 
@@ -130,6 +161,15 @@ class BotActionWorkerTest {
 		verify(slack, never()).post(anyString(), anyString());
 		assertEquals(0, actions.count());
 		assertEquals("skipped", deliveries.findByDeliveryId("delivery-ping").orElseThrow().getStatus());
+	}
+
+	private void saveRule(String keyword, String label, boolean slackEnabled) {
+		BotRule rule = new BotRule();
+		rule.setUser(users.findAll().getFirst());
+		rule.setKeyword(keyword);
+		rule.setLabel(label);
+		rule.setSlackEnabled(slackEnabled);
+		rules.save(rule);
 	}
 
 	private void saveDelivery(String event, String deliveryId, String payload) {
