@@ -100,7 +100,8 @@ class DashboardTest {
 				.andExpect(content().string(containsString("queued")))
 				.andExpect(content().string(containsString("label succeeded")))
 				.andExpect(content().string(containsString("slack succeeded")))
-				.andExpect(content().string(containsString("value=\"bug\"")));
+				.andExpect(content().string(containsString("value=\"bug\"")))
+				.andExpect(content().string(containsString("Every opened pull request is posted to Slack")));
 	}
 
 	@Test

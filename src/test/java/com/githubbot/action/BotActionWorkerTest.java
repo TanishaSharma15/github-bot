@@ -207,6 +207,104 @@ class BotActionWorkerTest {
 	}
 
 	@Test
+	void matchingPullRequestLabelsOnceAndNotifiesSlackOnce() {
+		saveDelivery("pull_request", "delivery-pr", pullRequest("opened", 4, "Fix login bug", "", "hubot"));
+
+		worker.process();
+		worker.process();
+
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 4, "bug");
+		verify(slack, times(1)).post(eq(SLACK_URL), contains("Fix login bug"));
+		verify(slack).post(eq(SLACK_URL), contains("hubot"));
+		verify(slack).post(eq(SLACK_URL), contains("https://github.com/octocat/github-bot-demo/pull/4"));
+		assertEquals("succeeded", actionStatus("label"));
+		assertEquals("succeeded", actionStatus("slack"));
+	}
+
+	@Test
+	void pullRequestWithoutKeywordStillNotifiesSlack() {
+		saveDelivery("pull_request", "delivery-pr-note",
+				pullRequest("opened", 5, "Just a note", "Nothing to do", "hubot"));
+
+		worker.process();
+
+		verify(github, never()).addIssueLabel(anyString(), anyString(), anyString(), anyInt(), anyString());
+		verify(slack, times(1)).post(eq(SLACK_URL), contains("Just a note"));
+		verify(slack).post(eq(SLACK_URL), contains("https://github.com/octocat/github-bot-demo/pull/5"));
+		assertEquals(1, actions.count());
+		assertEquals("succeeded", actionStatus("slack"));
+	}
+
+	@Test
+	void pullRequestKeywordInTheBodyStillGetsTheLabel() {
+		saveDelivery("pull_request", "delivery-pr-body",
+				pullRequest("opened", 6, "Homepage change", "This fixes a bug", "hubot"));
+
+		worker.process();
+
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 6, "bug");
+		verify(slack).post(eq(SLACK_URL), contains("as bug"));
+	}
+
+	@Test
+	void editedPullRequestIsSkipped() {
+		saveDelivery("pull_request", "delivery-pr-edit",
+				pullRequest("edited", 5, "Fix login bug", "", "hubot"));
+
+		worker.process();
+
+		verify(github, never()).addIssueLabel(anyString(), anyString(), anyString(), anyInt(), anyString());
+		verify(slack, never()).post(anyString(), anyString());
+		assertEquals(0, actions.count());
+		assertEquals("skipped", deliveries.findByDeliveryId("delivery-pr-edit").orElseThrow().getStatus());
+	}
+
+	@Test
+	void slackFailureOnPullRequestRetriesSlackWithoutLabelingAgain() {
+		saveDelivery("pull_request", "delivery-pr-retry", pullRequest("opened", 4, "Fix login bug", "", "hubot"));
+		doThrow(new SlackRequestException("Slack returned 500.")).doNothing().when(slack).post(anyString(), anyString());
+
+		worker.process();
+		worker.process();
+
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 4, "bug");
+		verify(slack, times(2)).post(eq(SLACK_URL), anyString());
+		assertEquals("succeeded", actionStatus("label"));
+		assertEquals("succeeded", actionStatus("slack"));
+	}
+
+	@Test
+	void slackOffStillLabelsMatchingPullRequest() {
+		when(summaries.isConfigured()).thenReturn(true);
+		saveRule("bug", "bug", false);
+		saveDelivery("pull_request", "delivery-pr-quiet", pullRequest("opened", 4, "Fix login bug", "", "hubot"));
+
+		worker.process();
+
+		verify(github, times(1)).addIssueLabel("raw-token", "octocat", "github-bot-demo", 4, "bug");
+		verify(slack, never()).post(anyString(), anyString());
+		verify(summaries, never()).summarize(anyString(), anyString());
+		assertEquals(1, actions.count());
+		assertEquals("succeeded", actionStatus("label"));
+	}
+
+	@Test
+	void summaryIsIncludedInThePullRequestSlackMessage() {
+		when(summaries.isConfigured()).thenReturn(true);
+		when(summaries.summarize(eq("Fix login bug"), anyString())).thenReturn("The login form fails.");
+		saveDelivery("pull_request", "delivery-pr-summary",
+				pullRequest("opened", 4, "Fix login bug", "The form rejects the password.", "hubot"));
+
+		worker.process();
+
+		verify(summaries).summarize(eq("Fix login bug"), contains("password"));
+		verify(slack).post(eq(SLACK_URL), contains("The login form fails."));
+		assertEquals("succeeded", actionStatus("summary"));
+		assertEquals("succeeded", actionStatus("label"));
+		assertEquals("succeeded", actionStatus("slack"));
+	}
+
+	@Test
 	void pingCreatesNoActions() {
 		saveDelivery("ping", "delivery-ping", "{\"zen\":\"keep it logically awesome\"}");
 
@@ -250,6 +348,12 @@ class BotActionWorkerTest {
 		return """
 				{"action":"%s","issue":{"number":%d,"title":"%s","body":"%s"}}
 				""".formatted(action, number, title, body);
+	}
+
+	private static String pullRequest(String action, int number, String title, String body, String author) {
+		return """
+				{"action":"%s","pull_request":{"number":%d,"title":"%s","body":"%s","user":{"login":"%s"}}}
+				""".formatted(action, number, title, body, author);
 	}
 
 }

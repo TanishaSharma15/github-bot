@@ -65,8 +65,21 @@ public class BotActionService {
 			return;
 		}
 		IssueMatch issue = IssueMatch.opened(delivery);
+		if (issue != null) {
+			planIssue(delivery, issue);
+			return;
+		}
+		PullRequestMatch pullRequest = PullRequestMatch.opened(delivery);
+		if (pullRequest != null) {
+			planPullRequest(delivery, pullRequest);
+			return;
+		}
+		delivery.setStatus("skipped");
+	}
+
+	private void planIssue(WebhookDelivery delivery, IssueMatch issue) {
 		RuleSettings rule = settingsFor(delivery);
-		if (issue == null || !issue.matches(rule.keyword())) {
+		if (!issue.matches(rule.keyword())) {
 			delivery.setStatus("skipped");
 			return;
 		}
@@ -76,6 +89,24 @@ public class BotActionService {
 				createAction(delivery, "summary");
 			}
 			createAction(delivery, "slack");
+		}
+		delivery.setStatus("queued");
+	}
+
+	private void planPullRequest(WebhookDelivery delivery, PullRequestMatch pullRequest) {
+		RuleSettings rule = settingsFor(delivery);
+		if (pullRequest.matches(rule.keyword())) {
+			createAction(delivery, "label");
+			if (rule.slackEnabled() && summaries.isConfigured()) {
+				createAction(delivery, "summary");
+			}
+		}
+		if (rule.slackEnabled()) {
+			createAction(delivery, "slack");
+		}
+		else if (!pullRequest.matches(rule.keyword())) {
+			delivery.setStatus("skipped");
+			return;
 		}
 		delivery.setStatus("queued");
 	}
@@ -105,23 +136,30 @@ public class BotActionService {
 	private void perform(BotAction action) {
 		WebhookDelivery delivery = action.getDelivery();
 		IssueMatch issue = IssueMatch.opened(delivery);
-		if (issue == null) {
-			throw new IllegalStateException("This delivery is not an opened issue.");
+		PullRequestMatch pullRequest = PullRequestMatch.opened(delivery);
+		if (issue == null && pullRequest == null) {
+			throw new IllegalStateException("This delivery is not an opened issue or pull request.");
 		}
 		RuleSettings rule = settingsFor(delivery);
 		TrackedRepository repository = delivery.getRepository();
 		if ("label".equals(action.getActionType())) {
+			int number = issue != null ? issue.number() : pullRequest.number();
 			github.addIssueLabel(cipher.decrypt(repository.getUser().getAccessToken()), repository.getOwner(),
-					repository.getName(), issue.number(), rule.label());
+					repository.getName(), number, rule.label());
 			return;
 		}
 		if ("summary".equals(action.getActionType())) {
-			action.setDetail(summaries.summarize(issue.title(), issue.body()));
+			String title = issue != null ? issue.title() : pullRequest.title();
+			String body = issue != null ? issue.body() : pullRequest.body();
+			action.setDetail(summaries.summarize(title, body));
 			return;
 		}
 		if ("slack".equals(action.getActionType())) {
-			slack.post(cipher.decrypt(repository.getSlackWebhookUrl()),
-					issue.slackText(repository.getOwner(), repository.getName(), rule.label(), savedSummary(delivery)));
+			String text = issue != null
+					? issue.slackText(repository.getOwner(), repository.getName(), rule.label(), savedSummary(delivery))
+					: pullRequest.slackText(repository.getOwner(), repository.getName(),
+							pullRequest.matches(rule.keyword()) ? rule.label() : null, savedSummary(delivery));
+			slack.post(cipher.decrypt(repository.getSlackWebhookUrl()), text);
 		}
 	}
 
