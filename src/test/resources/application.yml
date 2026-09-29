@@ -1,6 +1,8 @@
 app:
   encryption-key: test-encryption-key
   base-url: http://localhost:8080
+  worker-delay-ms: 3600000
+  action-retry-delay: 0s
 
 spring:
   datasource:

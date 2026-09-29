@@ -12,6 +12,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 class GitHubRestClientTest {
 
@@ -41,6 +42,26 @@ class GitHubRestClientTest {
 				"http://localhost:8080/webhooks/github", "test-secret");
 
 		assertEquals(55L, webhookId);
+		server.verify();
+	}
+
+	@Test
+	void addsABugLabelWhenTheLabelAlreadyExists() {
+		RestClient.Builder builder = RestClient.builder().baseUrl("https://api.github.com");
+		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+		GitHubRestClient github = new GitHubRestClient(builder.build());
+		server.expect(requestTo("https://api.github.com/repos/octocat/github-bot-demo/labels"))
+				.andExpect(method(POST))
+				.andExpect(header("Authorization", "Bearer raw-token"))
+				.andExpect(content().json("{\"name\":\"bug\",\"color\":\"d73a4a\"}"))
+				.andRespond(withStatus(org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY));
+		server.expect(requestTo("https://api.github.com/repos/octocat/github-bot-demo/issues/7/labels"))
+				.andExpect(method(POST))
+				.andExpect(content().json("{\"labels\":[\"bug\"]}"))
+				.andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+		github.addIssueLabel("raw-token", "octocat", "github-bot-demo", 7, "bug");
+
 		server.verify();
 	}
 

@@ -73,6 +73,40 @@ public class GitHubRestClient implements GitHubClient {
 		}
 	}
 
+	@Override
+	public void addIssueLabel(String accessToken, String owner, String name, int issueNumber, String label) {
+		createLabelIfMissing(accessToken, owner, name, label);
+		try {
+			restClient.post()
+					.uri("/repos/{owner}/{repo}/issues/{issue}/labels", owner, name, issueNumber)
+					.header("Authorization", bearer(accessToken))
+					.header("Accept", ACCEPT)
+					.body(Map.of("labels", List.of(label)))
+					.retrieve()
+					.toBodilessEntity();
+		}
+		catch (RestClientResponseException ex) {
+			throw failure("adding the label", ex);
+		}
+	}
+
+	private void createLabelIfMissing(String accessToken, String owner, String name, String label) {
+		try {
+			restClient.post()
+					.uri("/repos/{owner}/{repo}/labels", owner, name)
+					.header("Authorization", bearer(accessToken))
+					.header("Accept", ACCEPT)
+					.body(Map.of("name", label, "color", "d73a4a"))
+					.retrieve()
+					.toBodilessEntity();
+		}
+		catch (RestClientResponseException ex) {
+			if (ex.getStatusCode().value() != 422) {
+				throw failure("creating the label", ex);
+			}
+		}
+	}
+
 	private static String bearer(String accessToken) {
 		return "Bearer " + accessToken;
 	}

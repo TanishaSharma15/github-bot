@@ -8,4 +8,6 @@ public interface GitHubClient {
 
 	long createWebhook(String accessToken, String owner, String name, String callbackUrl, String secret);
 
+	void addIssueLabel(String accessToken, String owner, String name, int issueNumber, String label);
+
 }

@@ -4,6 +4,8 @@ server:
 app:
   encryption-key: ${APP_ENCRYPTION_KEY:}
   base-url: ${APP_BASE_URL:http://localhost:8080}
+  worker-delay-ms: ${APP_WORKER_DELAY_MS:15000}
+  action-retry-delay: ${APP_ACTION_RETRY_DELAY:30s}
 
 spring:
   application:

@@ -6,6 +6,7 @@ import java.time.Instant;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.githubbot.action.BotActionRepository;
 import com.githubbot.auth.TokenCipher;
 import com.githubbot.auth.User;
 import com.githubbot.auth.UserRepository;
@@ -45,10 +46,14 @@ class WebhookControllerTest {
 	private WebhookDeliveryRepository deliveries;
 
 	@Autowired
+	private BotActionRepository actions;
+
+	@Autowired
 	private TokenCipher cipher;
 
 	@BeforeEach
 	void connectedRepository() {
+		actions.deleteAll();
 		deliveries.deleteAll();
 		repositories.deleteAll();
 		users.deleteAll();

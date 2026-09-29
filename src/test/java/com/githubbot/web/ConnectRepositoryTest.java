@@ -3,6 +3,7 @@ package com.githubbot.web;
 import java.time.Instant;
 import java.util.List;
 
+import com.githubbot.action.BotActionRepository;
 import com.githubbot.auth.TokenCipher;
 import com.githubbot.auth.User;
 import com.githubbot.auth.UserRepository;
@@ -46,6 +47,9 @@ class ConnectRepositoryTest {
 	private WebhookDeliveryRepository deliveries;
 
 	@Autowired
+	private BotActionRepository actions;
+
+	@Autowired
 	private TokenCipher cipher;
 
 	@MockitoBean
@@ -53,6 +57,7 @@ class ConnectRepositoryTest {
 
 	@BeforeEach
 	void signedInUser() {
+		actions.deleteAll();
 		deliveries.deleteAll();
 		repositories.deleteAll();
 		users.deleteAll();
