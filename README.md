@@ -8,12 +8,31 @@ Health check: [https://github-bot-3t41.onrender.com/health](https://github-bot-3
 
 The free host sleeps after about 15 minutes. The first request after that can take up to a minute. Open the health URL and wait until it returns `{"status":"ok"}` before the rest of the test.
 
+## Slack incoming webhook
+
+The connect page asks for a **Slack incoming webhook URL**. That is not the address in the browser when a Slack channel is open. The app accepts only a URL that starts with `https://hooks.slack.com/`.
+
+Create one in the Slack workspace where you want the alerts:
+
+1. Open [https://api.slack.com/apps](https://api.slack.com/apps) and sign in to Slack.
+2. Click **Create New App**, then **From scratch**.
+3. Name the app `GitHub Bot`, choose your workspace, and click **Create App**.
+4. In the left sidebar, click **Incoming Webhooks**.
+5. Turn **Activate Incoming Webhooks** on.
+6. Click **Add New Webhook to Workspace**.
+7. Choose the channel that should receive the alerts, then click **Allow**.
+8. Back on **Incoming Webhooks**, copy the URL under **Webhook URLs for Your Workspace**. It starts with `https://hooks.slack.com/services/...`.
+
+Paste that whole URL into **Slack incoming webhook URL** on the connect page. Keep it private. Anyone with the URL can post into that channel.
+
+To copy an existing URL later, open [https://api.slack.com/apps](https://api.slack.com/apps), select the app, open **Incoming Webhooks**, and copy the same URL.
+
 ## Reviewer test
 
-Use your own GitHub account and a repository you administer. The app registers a webhook on that repository, so it needs admin rights there. You also need a Slack incoming webhook URL from a channel you can see (`https://hooks.slack.com/services/...`).
+Use your own GitHub account and a repository you administer. The app registers a webhook on that repository, so it needs admin rights there. Create the Slack URL in the section above before connecting a repository.
 
 1. Open the live app and click **Sign in with GitHub**. Authorize the app.
-2. Click **Connect repository**. Choose your repository, paste the Slack URL, and click **Connect**.
+2. Click **Connect repository**. Choose your repository, paste the Slack incoming webhook URL, and click **Connect**.
 3. On GitHub, open the repository's **Settings → Webhooks**. The new hook should point at `https://github-bot-3t41.onrender.com/webhooks/github`. Open **Recent Deliveries** and redeliver the ping if it is still red. A successful delivery shows **200**.
 4. Open **Dashboard**. Set the keyword to `bug`, the label to `bug`, leave **Post to Slack** checked, and click **Save rule**.
 5. Create an issue titled `Login bug on the homepage` and put a sentence in the body.
